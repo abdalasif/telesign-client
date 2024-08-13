@@ -3,6 +3,7 @@
 namespace telesign\sdk\rest;
 
 use GuzzleHttp\Client;
+use GuzzleHttp\RequestOptions;
 use Ramsey\Uuid\Uuid;
 
 use const telesign\sdk\version\VERSION;
@@ -71,75 +72,66 @@ class RestClient {
    * @param string $method_name        The HTTP method name of the request, should be one of 'POST', 'GET', 'PUT' or
    *                                   'DELETE'
    * @param string $resource           The partial resource URI to perform the request against
-   * @param string $url_encoded_fields HTTP body parameters to perform the HTTP request with, must be urlencoded
+   * @param array $fields  HTTP body parameters array to perform the HTTP request with
    * @param string $date               The date and time of the request
    * @param string $nonce              A unique cryptographic nonce for the request
    * @param string $user_agent         User Agent associated with the request
    *
    * @return array The TeleSign authentication headers
+   * @throws \Exception
    */
-  static function generateTelesignHeaders (
-    $customer_id,
-    $api_key,
-    $method_name,
-    $resource,
-    $url_encoded_fields,
-    $date = null,
-    $nonce = null,
-    $user_agent = null,
-    $content_type = null
-  ) {
-    if (!$date) {
-      $date = gmdate("D, d M Y H:i:s T");
-    }
-
-    if (!$nonce) {
-      $nonce = Uuid::uuid4()->toString();
-    }
-    
-    if (!$content_type) {
-        $content_type = in_array($method_name, ["POST", "PUT"]) ? "application/x-www-form-urlencoded" : "";
-    }
-    
-    $auth_method = "HMAC-SHA256";
-
-    $string_to_sign_builder = [
-      $method_name,
-      "\n$content_type",
-      "\n$date",
-      "\nx-ts-auth-method:$auth_method",
-      "\nx-ts-nonce:$nonce"
-    ];
-
-    if ($content_type && $url_encoded_fields) {
-      $string_to_sign_builder[] = "\n$url_encoded_fields";
-    }
-
-    $string_to_sign_builder[] = "\n$resource";
-
-    $string_to_sign = join("", $string_to_sign_builder);
-
-    $signature = base64_encode(
-      hash_hmac(
-          "sha256",
-          mb_convert_encoding($string_to_sign, 'UTF-8'),
-          base64_decode($api_key),
-          true
-      )
-    );
-    $authorization = "TSA $customer_id:$signature";
+  public function generateTelesignHeaders(
+    string $customerId,
+    string $apiKey,
+    string $httpMethod,
+    string $contentType,
+    string $path,
+    string|null $body = null,
+    string|null $nonce = null,
+    string|null $date = null,
+    string|null $userAgent = null
+  ): array {
+    // Prepare date and nonce
+    $date = $date ?? gmdate('D, d M Y H:i:s \G\M\T');
+    $nonce = $nonce ?? Uuid::uuid4()->toString();
+    $authMethod = 'HMAC-SHA256';
 
     $headers = [
-      "Authorization" => $authorization,
-      "Date" => $date,
-      "Content-Type" => $content_type,
-      "x-ts-auth-method" => $auth_method,
-      "x-ts-nonce" => $nonce
+      'Content-Type' => $contentType,
+//      'X-TS-Auth-Method' => $authMethod,
+//      'X-TS-Nonce' => $nonce,
+//      'X-TS-Date' => $date,
     ];
 
-    if ($user_agent) {
-      $headers["User-Agent"] = $user_agent;
+    // Prepare the string-to-sign
+    $stringToSign = strtoupper($httpMethod) . "\n" .
+      strtolower($contentType) . "\n" .
+      "\n" . //for Date header
+      "x-ts-auth-method: $authMethod\n" .
+      "x-ts-date: $date\n" .
+      "x-ts-nonce: $nonce\n" .
+      ($body !== null ? $body : null) .
+      "\n" . $path;
+
+    // Base64 decode the API key
+    $decodedApiKey = base64_decode($apiKey);
+
+    // Create HMAC hash using the decoded API key and the string-to-sign
+    $hash = hash_hmac('sha256', $stringToSign, $decodedApiKey, true);
+
+    // Base64 encode the resulting hash to create the signature
+    $signature = base64_encode($hash);
+
+    // Create the Authorization header
+//    $headers['Authorization'] = 'TSA ' . $customerId . ':' . $signature;
+    $headers['Authorization'] = 'Basic ' . base64_encode($customerId . ':' . $apiKey);
+
+    if (null !== $userAgent) {
+      $headers["User-Agent"] = $userAgent;
     }
+
+    // Sort headers alphabetically
+    ksort($headers);
 
     return $headers;
   }
@@ -187,6 +179,20 @@ class RestClient {
   }
 
   /**
+   * Generic TeleSign REST API PATCH handler
+   *
+   * @param string $resource The partial resource URI to perform the request against
+   * @param array  $fields   Query params to perform the DELETE request with
+   * @param string $date     The date and time of the request
+   * @param string $nonce    A unique cryptographic nonce for the request
+   *
+   * @return \telesign\sdk\rest\Response The RestClient Response object
+   */
+  function patch (...$args) {
+    return $this->execute("PATCH", ...$args);
+  }
+
+  /**
    * Generic TeleSign REST API DELETE handler
    *
    * @param string $resource The partial resource URI to perform the request against
@@ -210,27 +216,52 @@ class RestClient {
    *
    * @return \telesign\sdk\rest\Response The RestClient Response object
    */
-  protected function execute ($method_name, $resource, $fields = [], $date = null, $nonce = null) {
-    $url_encoded_fields = http_build_query($fields, "", "&");
+   protected function execute ($method_name, $resource, $fields = [], $contentType = null, $date = null, $nonce = null) {
+     if(null === $contentType) {
+       $contentType = 'application/x-www-form-urlencoded';
+     }
+
+     $body = null;
+
+     if($contentType === 'application/json' && count($fields) !== 0) {
+       $body = json_encode($fields);
+     }
+
+     if($contentType === 'application/x-www-form-urlencoded' && count($fields) !== 0) {
+       $body = http_build_query($fields, "", "&");
+     }
 
     $headers = $this->generateTelesignHeaders(
       $this->customer_id,
       $this->api_key,
       $method_name,
+      $contentType,
       $resource,
-      $url_encoded_fields,
-      $date,
+      $body,
       $nonce,
+      $date,
       $this->user_agent
     );
 
-    $option = in_array($method_name, [ "POST", "PUT" ]) ? "body" : "query";
+    $options = [
+      RequestOptions::HEADERS => $headers,
+      RequestOptions::HTTP_ERRORS => false
+    ];
 
-    return new Response($this->client->request($method_name, $resource, [
-      "headers" => $headers,
-      $option => $url_encoded_fields,
-      "http_errors" => false
-    ]));
+    /* Add json body if request is PUT, PATCH OR POST */
+    if(
+      $contentType === 'application/json'
+      && in_array($method_name, [ "POST", "PUT", "PATCH" ])
+      && count($fields) !== 0
+    ) {
+      $options[RequestOptions::BODY] = $body;
+    }
+
+     /* Add query in URL if request is GET */
+    if($method_name === "GET" && count($fields) !== 0) {
+      $options[RequestOptions::QUERY] = $body;
+    }
+
+    return new Response($this->client->request($method_name, $resource, $options));
   }
-
 }
