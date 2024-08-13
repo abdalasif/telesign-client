@@ -22,4 +22,30 @@ class PhoneIdClient extends RestClient {
   function phoneid ($phone_number, array $fields = []) {
     return $this->post(sprintf(self::PHONEID_RESOURCE, $phone_number), $fields);
   }
+
+  protected function execute ($method_name, $resource, $fields = [], $contentType = null, $date = null, $nonce = null) {
+    $json_fields = json_encode($fields, JSON_FORCE_OBJECT);
+
+    $content_type = in_array($method_name, ["POST", "PUT"]) ? "application/json" : null;
+
+    $headers = $this->generateTelesignHeaders(
+      $this->customer_id,
+      $this->api_key,
+      $method_name,
+      $content_type,
+      $resource,
+      $json_fields,
+      $nonce,
+      $date,
+      $this->user_agent,
+    );
+
+    $option = in_array($method_name, [ "POST", "PUT" ]) ? "body" : "query";
+
+    return new Response($this->client->request($method_name, $resource, [
+      "headers" => $headers,
+      $option => in_array($method_name, [ "POST", "PUT"]) ? $json_fields : $fields,
+      "http_errors" => false
+    ]));
+  }
 }

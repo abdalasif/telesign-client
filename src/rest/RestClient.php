@@ -80,7 +80,7 @@ class RestClient {
    * @return array The TeleSign authentication headers
    * @throws \Exception
    */
-  public function generateTelesignHeaders(
+  public static function generateTelesignHeaders(
     string $customerId,
     string $apiKey,
     string $httpMethod,
@@ -250,8 +250,7 @@ class RestClient {
 
     /* Add json body if request is PUT, PATCH OR POST */
     if(
-      $contentType === 'application/json'
-      && in_array($method_name, [ "POST", "PUT", "PATCH" ])
+      in_array($method_name, [ "POST", "PUT", "PATCH" ])
       && count($fields) !== 0
     ) {
       $options[RequestOptions::BODY] = $body;
@@ -260,6 +259,13 @@ class RestClient {
      /* Add query in URL if request is GET */
     if($method_name === "GET" && count($fields) !== 0) {
       $options[RequestOptions::QUERY] = $body;
+    }
+
+    if(
+      array_key_exists(RequestOptions::QUERY, $options)
+      && array_key_exists(RequestOptions::BODY, $options)
+    ) {
+      unset($options[RequestOptions::BODY]);
     }
 
     return new Response($this->client->request($method_name, $resource, $options));
