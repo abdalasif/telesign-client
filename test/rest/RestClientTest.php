@@ -19,6 +19,7 @@ final class RestClientTest extends TestCase {
   const EXAMPLE_RESOURCE = "/v1/resource";
   const EXAMPLE_FIELDS = [ "test" => "param" ];
   const EXAMPLE_URL_ENCODED_FIELDS = "test=param";
+  const EXAMPLE_JSON_BODY = '{"test":"param"}';
   const EXAMPLE_DATE = "Mon, 27 Jan 2017 23:59:59 GMT";
   const EXAMPLE_NONCE = "5ffb243e-8e2a-4a7b-bf22-2b3925b3d6ef";
 
@@ -30,18 +31,19 @@ final class RestClientTest extends TestCase {
       self::EXAMPLE_CUSTOMER_ID,
       self::EXAMPLE_API_KEY,
       $data["method_name"],
+      $data["request"]["headers"]["content-type"] ?? 'application/x-www-form-urlencoded',
       self::EXAMPLE_RESOURCE,
       self::EXAMPLE_URL_ENCODED_FIELDS,
+      self::EXAMPLE_NONCE,
       self::EXAMPLE_DATE,
-      self::EXAMPLE_NONCE
     );
 
     $expected_headers = [
       "Authorization" => $data["request"]["headers"]["authorization"],
-      "Date" => self::EXAMPLE_DATE,
+//      "Date" => self::EXAMPLE_DATE,
       "Content-Type" => $data["request"]["headers"]["content-type"],
-      "x-ts-auth-method" => "HMAC-SHA256",
-      "x-ts-nonce" => self::EXAMPLE_NONCE
+//      "x-ts-auth-method" => "HMAC-SHA256",
+//      "x-ts-nonce" => self::EXAMPLE_NONCE
     ];
 
     $this->assertEquals($expected_headers, $actual_headers);
@@ -55,7 +57,8 @@ final class RestClientTest extends TestCase {
           "uri" => self::EXAMPLE_REST_ENDPOINT . self::EXAMPLE_RESOURCE,
           "body" => self::EXAMPLE_URL_ENCODED_FIELDS,
           "headers" => [
-            "authorization" => "TSA FFFFFFFF-EEEE-DDDD-1234-AB1234567890:smUGWEeXtN+WT1s/y1Ssp4Q2Acm/ultPxkgl/GjqSsA=",
+//            "authorization" => "TSA FFFFFFFF-EEEE-DDDD-1234-AB1234567890:smUGWEeXtN+WT1s/y1Ssp4Q2Acm/ultPxkgl/GjqSsA=",
+            "authorization" => "Basic " . base64_encode(self::EXAMPLE_CUSTOMER_ID . ":" . self::EXAMPLE_API_KEY),
             "content-type" => "application/x-www-form-urlencoded",
           ]
         ]
@@ -66,8 +69,9 @@ final class RestClientTest extends TestCase {
           "uri" => self::EXAMPLE_REST_ENDPOINT . self::EXAMPLE_RESOURCE . "?" . self::EXAMPLE_URL_ENCODED_FIELDS,
           "body" => "",
           "headers" => [
-            "authorization" => "TSA FFFFFFFF-EEEE-DDDD-1234-AB1234567890:YgzQt6LcuBDSUeTpE4SASXcSAKAm1eL5TWetbxhXJxg=",
-            "content-type" => ""
+              "authorization" => "Basic " . base64_encode(self::EXAMPLE_CUSTOMER_ID . ":" . self::EXAMPLE_API_KEY),
+//            "authorization" => "TSA FFFFFFFF-EEEE-DDDD-1234-AB1234567890:YgzQt6LcuBDSUeTpE4SASXcSAKAm1eL5TWetbxhXJxg=",
+            "content-type" => "application/x-www-form-urlencoded"
           ]
         ]
       ]],
@@ -77,8 +81,21 @@ final class RestClientTest extends TestCase {
           "uri" => self::EXAMPLE_REST_ENDPOINT . self::EXAMPLE_RESOURCE,
           "body" => self::EXAMPLE_URL_ENCODED_FIELDS,
           "headers" => [
-            "authorization" => "TSA FFFFFFFF-EEEE-DDDD-1234-AB1234567890:ccNQP7Tdwsfqx/Sdz/MmZuhFh+z0z/Bj+OcwDhbTT0s=",
+            "authorization" => "Basic " . base64_encode(self::EXAMPLE_CUSTOMER_ID . ":" . self::EXAMPLE_API_KEY),
+//            "authorization" => "TSA FFFFFFFF-EEEE-DDDD-1234-AB1234567890:ccNQP7Tdwsfqx/Sdz/MmZuhFh+z0z/Bj+OcwDhbTT0s=",
             "content-type" => "application/x-www-form-urlencoded"
+          ]
+        ]
+      ]],
+      [[
+        "method_name" => "PATCH",
+        "request" => [
+          "uri" => self::EXAMPLE_REST_ENDPOINT . self::EXAMPLE_RESOURCE,
+          "body" => self::EXAMPLE_JSON_BODY,
+          "headers" => [
+            "authorization" => "Basic " . base64_encode(self::EXAMPLE_CUSTOMER_ID . ":" . self::EXAMPLE_API_KEY),
+//            "authorization" => "TSA FFFFFFFF-EEEE-DDDD-1234-AB1234567890:ODT8s51qSdrS2pKbtrKIu76gQJf2h0hDz8nJ5ho0/6w=",
+            "content-type" => "application/json"
           ]
         ]
       ]],
@@ -88,33 +105,35 @@ final class RestClientTest extends TestCase {
           "uri" => self::EXAMPLE_REST_ENDPOINT . self::EXAMPLE_RESOURCE . "?" . self::EXAMPLE_URL_ENCODED_FIELDS,
           "body" => "",
           "headers" => [
-            "authorization" => "TSA FFFFFFFF-EEEE-DDDD-1234-AB1234567890:ODT8s51qSdrS2pKbtrKIu76gQJf2h0hDz8nJ5ho0/6w=",
-            "content-type" => ""
+            "authorization" => "Basic " . base64_encode(self::EXAMPLE_CUSTOMER_ID . ":" . self::EXAMPLE_API_KEY),
+//            "authorization" => "TSA FFFFFFFF-EEEE-DDDD-1234-AB1234567890:ODT8s51qSdrS2pKbtrKIu76gQJf2h0hDz8nJ5ho0/6w=",
+            "content-type" => "application/x-www-form-urlencoded"
           ]
         ]
       ]]
     ];
   }
-
-  /**
-   * @dataProvider getTelesignHeadersAffectedByOptionalArguments
-   */
-  function testGeneratesTelesignHeadersAffectedByOptionalArguments ($header_name) {
-    $headers = RestClient::generateTelesignHeaders(
-      self::EXAMPLE_CUSTOMER_ID,
-      self::EXAMPLE_API_KEY,
-      "POST",
-      self::EXAMPLE_RESOURCE,
-      self::EXAMPLE_URL_ENCODED_FIELDS
-    );
-
-    $this->assertArrayHasKey($header_name, $headers);
-    $this->assertNotEmpty($headers[$header_name]);
-  }
-
-  function getTelesignHeadersAffectedByOptionalArguments () {
-    return [ [ "Date" ], [ "x-ts-nonce" ] ];
-  }
+/* skipping this test since we are using basic auth and we have turned off date and other headers */
+//  /**
+//   * @dataProvider getTelesignHeadersAffectedByOptionalArguments
+//   */
+//  function testGeneratesTelesignHeadersAffectedByOptionalArguments ($header_name) {
+//    $headers = RestClient::generateTelesignHeaders(
+//      self::EXAMPLE_CUSTOMER_ID,
+//      self::EXAMPLE_API_KEY,
+//      "POST",
+//      'application/x-www-form-urlencoded',
+//      self::EXAMPLE_RESOURCE,
+//      self::EXAMPLE_URL_ENCODED_FIELDS,
+//    );
+//
+//    $this->assertArrayHasKey($header_name, $headers);
+//    $this->assertNotEmpty($headers[$header_name]);
+//  }
+//
+//  function getTelesignHeadersAffectedByOptionalArguments () {
+//    return [ [ "Date" ], [ "x-ts-nonce" ] ];
+//  }
 
   function testUserAgentMatchesFormat () {
     $mock = new MockHandler([ new Response() ]);
@@ -142,16 +161,16 @@ final class RestClientTest extends TestCase {
       self::EXAMPLE_CUSTOMER_ID, self::EXAMPLE_API_KEY, self::EXAMPLE_REST_ENDPOINT, 10, null, $mock
     );
     $client->{$data["method_name"]}(
-      self::EXAMPLE_RESOURCE, self::EXAMPLE_FIELDS, self::EXAMPLE_DATE, self::EXAMPLE_NONCE
+      self::EXAMPLE_RESOURCE, self::EXAMPLE_FIELDS, $data["request"]["headers"]["content-type"], self::EXAMPLE_DATE, self::EXAMPLE_NONCE
     );
 
     $request = $mock->getLastRequest();
 
     $this->assertInstanceOf(RequestInterface::class, $request);
-    $this->assertEquals($data["request"]["uri"], $request->getUri());
+    $this->assertEquals($data["request"]["uri"], (string)$request->getUri());
     $this->assertTrue($request->hasHeader("authorization"));
     $this->assertEquals($data["request"]["headers"]["authorization"], $request->getHeader("authorization")[0]);
-    $this->assertEquals($data["request"]["body"], $request->getBody());
+    $this->assertEquals($data["request"]["body"], $request->getBody()->getContents());
   }
 
   /**

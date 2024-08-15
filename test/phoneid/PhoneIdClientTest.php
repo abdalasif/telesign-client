@@ -29,7 +29,7 @@ final class PhoneIdClientTest extends ClientTest {
           self::EXAMPLE_PHONE_NUMBER,
         ],
         "uri" => self::EXAMPLE_REST_ENDPOINT . "/v1/phoneid/" . self::EXAMPLE_PHONE_NUMBER,
-        "{}",
+        "",
       ]
     ];
   }

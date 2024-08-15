@@ -223,11 +223,11 @@ class RestClient {
 
      $body = null;
 
-     if($contentType === 'application/json' && count($fields) !== 0) {
+     if(count($fields) !== 0 && $contentType === 'application/json') {
        $body = json_encode($fields);
      }
 
-     if($contentType === 'application/x-www-form-urlencoded' && count($fields) !== 0) {
+     if(count($fields) !== 0 && $contentType === 'application/x-www-form-urlencoded') {
        $body = http_build_query($fields, "", "&");
      }
 
@@ -250,23 +250,19 @@ class RestClient {
 
     /* Add json body if request is PUT, PATCH OR POST */
     if(
-      in_array($method_name, [ "POST", "PUT", "PATCH" ])
-      && count($fields) !== 0
+      count($fields) !== 0
+      && in_array($method_name, [ "POST", "PUT", "PATCH" ])
     ) {
       $options[RequestOptions::BODY] = $body;
     }
 
-     /* Add query in URL if request is GET */
-    if($method_name === "GET" && count($fields) !== 0) {
-      $options[RequestOptions::QUERY] = $body;
-    }
-
-    if(
-      array_key_exists(RequestOptions::QUERY, $options)
-      && array_key_exists(RequestOptions::BODY, $options)
-    ) {
-      unset($options[RequestOptions::BODY]);
-    }
+     /* Add query in URL if request is GET or DELETE */
+     if(
+       count($fields) !== 0
+       && in_array($method_name, [ "GET", "DELETE" ])
+     ) {
+       $options[RequestOptions::QUERY] = $body;
+     }
 
     return new Response($this->client->request($method_name, $resource, $options));
   }
