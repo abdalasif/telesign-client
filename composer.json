@@ -23,7 +23,7 @@
     "ext-xml": "*",
     "guzzlehttp/guzzle": "^7.0",
     "psr/http-message": "^1.0",
-    "ramsey/uuid": "^3.8",
+    "ramsey/uuid": "^4.7",
     "ext-mbstring": "*"
   },
   "require-dev": {
